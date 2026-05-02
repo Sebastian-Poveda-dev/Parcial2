@@ -20,8 +20,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh "chmod +x mvnw"
-                sh "./mvnw -q -DskipTests clean package"
+                sh "docker run --rm -v $PWD:/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 maven:3.6.0-jdk-10-slim mvn -q -DskipTests clean package"
             }
         }
         stage('Docker Build') {
@@ -31,13 +30,13 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh "./mvnw -q test -Dgroups=UnitTest"
+                sh "docker run --rm -v $PWD:/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=UnitTest"
             }
         }
         stage('Static Analysis (SonarQube)') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    sh "./mvnw -q -DskipTests sonar:sonar -Dsonar.projectKey=${APP_NAME}"
+                    sh "docker run --rm -v $PWD:/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 -e SONAR_HOST_URL -e SONAR_AUTH_TOKEN maven:3.6.0-jdk-10-slim mvn -q -DskipTests sonar:sonar -Dsonar.projectKey=${APP_NAME} -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN"
                 }
             }
         }
