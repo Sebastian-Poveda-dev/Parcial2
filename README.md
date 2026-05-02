@@ -44,6 +44,47 @@ How to run the app:
 make
 ```
 
+## Jenkins Pipeline (Academic Exercise)
+
+This repository includes a Jenkinsfile aligned to the exercise requirements:
+
+* Checkout
+* Build (Maven package)
+* Docker Build (image for this app)
+* Test (unit tests)
+* Static Analysis (SonarQube) + Quality Gate
+* Container Security Scan (Trivy)
+* Deploy (local Docker run on master)
+
+### Jenkins Agent Prereqs
+
+* Jenkins running with Docker access (for example, mount `/var/run/docker.sock`).
+* Docker CLI available inside Jenkins (you can build a custom image from [jenkins/Dockerfile](jenkins/Dockerfile)).
+* SonarQube server configured in Jenkins with the name `sonarqube`.
+* No extra cleanup plugin required (the pipeline uses `deleteDir()` in the post block).
+
+### Local SonarQube
+
+Start SonarQube locally:
+
+```bash
+docker-compose up -d sonarqube
+```
+
+Open `http://localhost:9000` (default credentials: `admin` / `admin`).
+Create a token and configure it in Jenkins under the SonarQube server settings.
+
+### Quality Gate (Security Hotspot)
+
+To satisfy the gatekeeping requirement, configure a Quality Gate in SonarQube
+that fails when Security Hotspots are above 0. The Jenkins pipeline enforces
+this gate via `waitForQualityGate`.
+
+### Trivy Scan
+
+The pipeline runs Trivy using the official container image and fails the build
+if CRITICAL vulnerabilities are found in the built image.
+
 ## Testing
 
 Unit tests and integrations tests are separated using [JUnit Categories][].

@@ -19,6 +19,16 @@ services:
   selenium:
     image: selenium/standalone-chrome
 
+  sonarqube:
+    image: sonarqube:9.9-community
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+
   # postgres:
   #   image:  helderklemp/arminc/clair-db:latest
   #   env_file: .env
@@ -31,3 +41,7 @@ services:
   #     - /var/run/docker.sock:/var/run/docker.sock:Z
   #   depends_on:
   #     - postgres  
+
+volumes:
+  sonarqube_data:
+  sonarqube_extensions:

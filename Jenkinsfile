@@ -1,93 +1,72 @@
 #!/usr/bin/env groovy
 
 pipeline {
-    environment{
-       FEATURE_NAME = BRANCH_NAME.replaceAll('[\\(\\)_/]','-').toLowerCase()
-       REGISTRY_PASSWORD = credentials('REGISTRY_PASSWORD')
-       REGISTRY_USERNAME = credentials('REGISTRY_USERNAME')
-       POSTGRES_PASSWORD = credentials('POSTGRES_PASSWORD')
-       APP_NAME = "cicd-demo"
+    agent any
+    options {
+        timestamps()
+        skipDefaultCheckout(true)
     }
-    agent any 
+    environment {
+        APP_NAME = "cicd-demo"
+        IMAGE_TAG = "${APP_NAME}:${BUILD_NUMBER}"
+        DEPLOY_CONTAINER = "${APP_NAME}-local"
+        SONARQUBE_SERVER = "sonarqube"
+    }
     stages {
-        stage('Docker Build & Push') {
+        stage('Checkout') {
             steps {
-                sh "make dockerLogin build dockerBuild dockerPush"
+                checkout scm
             }
-
         }
-		// not in parallel due to race condition with .env
-        stage('Docker Scan') {
+        stage('Build') {
             steps {
-                sh "make dockerScan"
+                sh "chmod +x mvnw"
+                sh "./mvnw -q -DskipTests clean package"
             }
-            post {
-                cleanup {
-                    sh "docker-compose down -v"
+        }
+        stage('Docker Build') {
+            steps {
+                sh "docker build -t ${IMAGE_TAG} ."
+            }
+        }
+        stage('Test') {
+            steps {
+                sh "./mvnw -q test -Dgroups=UnitTest"
+            }
+        }
+        stage('Static Analysis (SonarQube)') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    sh "./mvnw -q -DskipTests sonar:sonar -Dsonar.projectKey=${APP_NAME}"
                 }
             }
         }
-        
-        stage('Parallel Tests') {
-            failFast true            
-            parallel {                  
-                stage('Static Code Analysis') {
-                    when {
-                        anyOf { branch 'master'; branch 'release'}
-                    }    
-                    steps {
-                        sh "make publishSonar"                        
-                    }
-                }
-                stage('Integration Tests') {
-                    steps {
-                        sh "make integrationTest"
-                    }
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
-        stage('Push Latest Tag') {
+        stage('Container Security Scan (Trivy)') {
+            steps {
+                sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.52.2 image --no-progress --severity CRITICAL --exit-code 1 ${IMAGE_TAG}"
+            }
+        }
+        stage('Deploy') {
             when { branch 'master' }
             steps {
-                sh "make dockerPushLatest"
+                sh "docker rm -f ${DEPLOY_CONTAINER} || true"
+                sh "docker run -d --name ${DEPLOY_CONTAINER} -p 80:8080 ${IMAGE_TAG}"
             }
         }
-
-        stage('Deploy To dev') {
-            environment { 
-                ENV = "dev"
-                APP_DNS = util.selectAppUrl(ENV, FEATURE_NAME, APP_NAME)
-                KUBE_SERVER = credentials("KUBE_API_SERVER")
-                KUBE_TOKEN = credentials("KUBE_DEV_TOKEN")
-            }
-            steps {
-                sh "make kubeLogin deploy"
-            }
-        }
-        
-        stage('Deploy To qa') {
-            when { expression { BRANCH_NAME ==~ /(master|release-[0-9]+$)/ }} // Only Master and Release branches 
-            environment { 
-                ENV = "qa"
-                APP_DNS = util.selectAppUrl(ENV, FEATURE_NAME, APP_NAME)
-                KUBE_SERVER = credentials("KUBE_API_SERVER")
-                KUBE_TOKEN = credentials("KUBE_QA_TOKEN")
-            }
-            steps {
-                sh "make kubeLogin deploy"
-            }
-        }
-        
     }
     post {
+        failure {
+            echo 'Pipeline failed. Check the stage logs for details.'
+        }
         always {
-            script {
-                if(BRANCH_NAME ==~ /(master|release-[0-9]+$)/ ){
-                     util.notifySlack(currentBuild.result)
-                 }
-            }
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-            junit 'target/surefire-reports/*.xml'
+            deleteDir()
         }
     }
 }
