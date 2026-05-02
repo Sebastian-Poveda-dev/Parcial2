@@ -20,7 +20,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" maven:3.6.0-jdk-10-slim mvn -q -DskipTests clean package'
+                sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -e USER=jenkins -e USERNAME=jenkins -e MAVEN_CONFIG=/var/jenkins_home/.m2 -e JAVA_TOOL_OPTIONS=-Duser.home=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" maven:3.6.0-jdk-10-slim mvn -q -DskipTests clean package'
             }
         }
         stage('Docker Build') {
@@ -30,13 +30,13 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=UnitTest'
+                sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -e USER=jenkins -e USERNAME=jenkins -e MAVEN_CONFIG=/var/jenkins_home/.m2 -e JAVA_TOOL_OPTIONS=-Duser.home=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=UnitTest'
             }
         }
         stage('Static Analysis (SonarQube)') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" -e SONAR_HOST_URL -e SONAR_AUTH_TOKEN maven:3.6.0-jdk-10-slim mvn -q -DskipTests sonar:sonar -Dsonar.projectKey=$APP_NAME -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN'
+                    sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -e USER=jenkins -e USERNAME=jenkins -e MAVEN_CONFIG=/var/jenkins_home/.m2 -e JAVA_TOOL_OPTIONS=-Duser.home=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" -e SONAR_HOST_URL -e SONAR_AUTH_TOKEN maven:3.6.0-jdk-10-slim mvn -q -DskipTests sonar:sonar -Dsonar.projectKey=$APP_NAME -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN'
                 }
             }
         }
