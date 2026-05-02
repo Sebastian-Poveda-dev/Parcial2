@@ -20,23 +20,23 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh "docker run --rm -v $PWD:/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 maven:3.6.0-jdk-10-slim mvn -q -DskipTests clean package"
+                sh 'docker run --rm -v "$WORKSPACE":/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 maven:3.6.0-jdk-10-slim mvn -q -DskipTests clean package'
             }
         }
         stage('Docker Build') {
             steps {
-                sh "docker build -t ${IMAGE_TAG} ."
+                sh 'docker build -t $IMAGE_TAG .'
             }
         }
         stage('Test') {
             steps {
-                sh "docker run --rm -v $PWD:/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=UnitTest"
+                sh 'docker run --rm -v "$WORKSPACE":/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=UnitTest'
             }
         }
         stage('Static Analysis (SonarQube)') {
             steps {
                 withSonarQubeEnv("${SONARQUBE_SERVER}") {
-                    sh "docker run --rm -v $PWD:/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 -e SONAR_HOST_URL -e SONAR_AUTH_TOKEN maven:3.6.0-jdk-10-slim mvn -q -DskipTests sonar:sonar -Dsonar.projectKey=${APP_NAME} -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN"
+                    sh 'docker run --rm -v "$WORKSPACE":/workspace -w /workspace -v /var/jenkins_home/.m2:/root/.m2 -e SONAR_HOST_URL -e SONAR_AUTH_TOKEN maven:3.6.0-jdk-10-slim mvn -q -DskipTests sonar:sonar -Dsonar.projectKey=$APP_NAME -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.login=$SONAR_AUTH_TOKEN'
                 }
             }
         }
