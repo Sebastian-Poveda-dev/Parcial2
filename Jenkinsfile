@@ -30,7 +30,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -e USER=jenkins -e USERNAME=jenkins -e MAVEN_CONFIG=/var/jenkins_home/.m2 -e JAVA_TOOL_OPTIONS=-Duser.home=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=UnitTest -DforkCount=0 -DreuseForks=false'
+                sh 'docker run --rm -u $(id -u):$(id -g) -e HOME=/var/jenkins_home -e USER=jenkins -e USERNAME=jenkins -e MAVEN_CONFIG=/var/jenkins_home/.m2 -e JAVA_TOOL_OPTIONS=-Duser.home=/var/jenkins_home -v jenkins_home:/var/jenkins_home -w "$WORKSPACE" maven:3.6.0-jdk-10-slim mvn -q test -Dgroups=au.com.equifax.cicddemo.domain.UnitTest -DforkCount=0 -DreuseForks=false'
             }
         }
         stage('Static Analysis (SonarQube)') {
